@@ -15,6 +15,8 @@ The common workaround is giving up on `async: true` and running everything synch
 
 A better default: **no shared state survives between tests**. Each test gets its own database transaction, its own cache instance, its own feature flag store, its own mock context. SandboxCase sets this up with one config and one line in test_helper.
 
+Crucially, each adapter isolates state in a way that's native to the library — Ecto gets a wrapped transaction, Cachex gets a real but isolated cache instance, FunWithFlags gets its own ETS table. Your tests still exercise the actual library code paths, so you catch real bugs in how your app uses the dependency. You can always fully mock a dependency (which itself benefits from the batteries-included approach) when that's what your test calls for — but when you don't, the default should be clean isolation, not leaked state.
+
 ## How it works
 
 One config, one setup call, zero boilerplate. Built-in adapters for Ecto, Cachex, FunWithFlags, Mimic, and Mox — each activated only if the dep is loaded.
