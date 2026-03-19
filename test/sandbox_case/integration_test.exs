@@ -98,6 +98,35 @@ defmodule SandboxCase.IntegrationTest do
     end
   end
 
+  describe "Logger sandbox" do
+    test "captures logs from test process only", %{sandbox_tokens: tokens} do
+      require Logger
+      Logger.info("hello from this test")
+
+      logs = SandboxCase.Sandbox.Logger.get_logs(tokens)
+      assert Enum.any?(logs, &(&1.message =~ "hello from this test"))
+    end
+
+    test "logs don't leak between tests", %{sandbox_tokens: tokens} do
+      require Logger
+      Logger.info("different test")
+
+      logs = SandboxCase.Sandbox.Logger.get_logs(tokens)
+      refute Enum.any?(logs, &(&1.message =~ "hello from this test"))
+      assert Enum.any?(logs, &(&1.message =~ "different test"))
+    end
+
+    test "captures logs from spawned processes", %{sandbox_tokens: tokens} do
+      require Logger
+
+      task = Task.async(fn -> Logger.warning("from child") end)
+      Task.await(task)
+
+      logs = SandboxCase.Sandbox.Logger.get_logs(tokens)
+      assert Enum.any?(logs, &(&1.message =~ "from child"))
+    end
+  end
+
   # Build a conn with sandbox metadata encoded in the user-agent,
   # mimicking what a browser testing framework does.
   defp build_conn_with_sandbox(tokens) do

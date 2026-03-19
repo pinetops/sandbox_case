@@ -49,7 +49,8 @@ defmodule SandboxCase.Sandbox do
     fun_with_flags: SandboxCase.Sandbox.FunWithFlags,
     mimic: SandboxCase.Sandbox.Mimic,
     mox: SandboxCase.Sandbox.Mox,
-    redis: SandboxCase.Sandbox.Redis
+    redis: SandboxCase.Sandbox.Redis,
+    logger: SandboxCase.Sandbox.Logger
   }
 
   @doc """

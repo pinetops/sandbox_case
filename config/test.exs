@@ -21,5 +21,6 @@ config :sandbox_case,
     ecto: true,
     cachex: [:test_cache],
     fun_with_flags: true,
-    mimic: [SandboxCase.TestApp.ExternalService]
+    mimic: [SandboxCase.TestApp.ExternalService],
+    logger: true
   ]
