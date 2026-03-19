@@ -41,8 +41,8 @@ ExUnit.start()
 import SandboxCase
 sandbox_plugs()
 
-socket "/live", Phoenix.LiveView.Socket,
-  websocket: [connect_info: [:user_agent, session: @session_options]]
+socket_with_sandbox "/live", Phoenix.LiveView.Socket,
+  websocket: [connect_info: [session: @session_options]]
 ```
 
 ```elixir

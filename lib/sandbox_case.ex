@@ -7,7 +7,7 @@ defmodule SandboxCase do
       import SandboxCase
       sandbox_plugs()
 
-      sandbox_socket "/live", Phoenix.LiveView.Socket,
+      socket_with_sandbox "/live", Phoenix.LiveView.Socket,
         websocket: [connect_info: [session: @session_options]]
 
   ## LiveView setup
@@ -51,7 +51,7 @@ defmodule SandboxCase do
 
   ## Example
 
-      sandbox_socket "/live", Phoenix.LiveView.Socket,
+      socket_with_sandbox "/live", Phoenix.LiveView.Socket,
         websocket: [connect_info: [session: @session_options]]
 
   In test, this becomes:
@@ -59,7 +59,7 @@ defmodule SandboxCase do
       socket "/live", Phoenix.LiveView.Socket,
         websocket: [connect_info: [:user_agent, session: @session_options]]
   """
-  defmacro sandbox_socket(path, module, opts) do
+  defmacro socket_with_sandbox(path, module, opts) do
     if test_env?() do
       opts = inject_user_agent(opts)
       quote do: socket(unquote(path), unquote(module), unquote(opts))
