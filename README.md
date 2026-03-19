@@ -72,6 +72,39 @@ Checks out all sandboxes in `setup`, checks them back in via `on_exit`. Ecto met
 SandboxCase.Sandbox.ecto_metadata(context.sandbox_tokens)
 ```
 
+## GenServers and sandbox access
+
+Ecto sandbox, Mimic stubs, and Mox mocks are resolved via `$callers` — a process dictionary key that Elixir's `Task` module sets automatically. `GenServer.start_link` does **not** set it, so a GenServer started from a LiveView or test won't see sandboxed state by default.
+
+The fix: pass `$callers` explicitly when starting the GenServer.
+
+```elixir
+defmodule MyApp.PriceServer do
+  use GenServer
+
+  def start_supervised(opts \\ []) do
+    callers = [self() | Process.get(:"$callers", [])]
+    GenServer.start_link(__MODULE__, Keyword.put(opts, :callers, callers))
+  end
+
+  @impl true
+  def init(opts) do
+    if callers = opts[:callers], do: Process.put(:"$callers", callers)
+    {:ok, %{}}
+  end
+
+  @impl true
+  def handle_call(:fetch_price, _from, state) do
+    # This works in tests — Mimic finds the test process via $callers,
+    # and Ecto finds the sandbox connection the same way.
+    price = MyApp.PriceService.fetch_price()
+    {:reply, price, state}
+  end
+end
+```
+
+This pattern works for any process you spawn that needs access to the test sandbox: GenServers, Agents, custom processes via `spawn_link`, etc. `Task.start_link` and `Task.async` handle this automatically.
+
 ## Custom adapters
 
 Implement `SandboxCase.Sandbox.Adapter` to add isolation for any shared state.
