@@ -2,7 +2,7 @@ defmodule PhoenixTestOnly.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/pinetops/phoenix_test_only"
-  @version "0.2.0"
+  @version "0.3.0"
 
   def project do
     [
@@ -11,7 +11,7 @@ defmodule PhoenixTestOnly.MixProject do
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       package: package(),
-      description: "Compile-time conditional plug/on_mount for test-only modules.",
+      description: "Test sandbox orchestration and compile-time conditional plug/on_mount.",
       deps: deps(),
       docs: docs()
     ]
