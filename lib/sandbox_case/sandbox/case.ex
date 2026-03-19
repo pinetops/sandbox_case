@@ -14,12 +14,12 @@ defmodule SandboxCase.Sandbox.Case do
   use ExUnit.CaseTemplate
 
   setup context do
-    tokens = SandboxCase.Sandbox.checkout(async?: context[:async] || false)
+    sandbox = SandboxCase.Sandbox.checkout(async?: context[:async] || false)
 
     on_exit(fn ->
-      SandboxCase.Sandbox.checkin(tokens)
+      SandboxCase.Sandbox.checkin(sandbox)
     end)
 
-    %{sandbox_tokens: tokens}
+    %{sandbox: sandbox}
   end
 end

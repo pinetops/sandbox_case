@@ -13,14 +13,14 @@ defmodule SandboxCaseTest do
     end
 
     test "checkout/checkin round-trip with no adapters" do
-      tokens = SandboxCase.Sandbox.checkout(sandbox: [])
-      assert tokens == []
-      assert :ok = SandboxCase.Sandbox.checkin(tokens)
+      sandbox = SandboxCase.Sandbox.checkout(sandbox: [])
+      assert sandbox.tokens == []
+      assert :ok = SandboxCase.Sandbox.checkin(sandbox)
     end
 
     test "skips unavailable adapters" do
-      tokens = SandboxCase.Sandbox.checkout(sandbox: [redis: [url: "redis://nope"]])
-      assert tokens == []
+      sandbox = SandboxCase.Sandbox.checkout(sandbox: [redis: [url: "redis://nope"]])
+      assert sandbox.tokens == []
     end
 
     test "ecto_metadata returns nil when no ecto token" do

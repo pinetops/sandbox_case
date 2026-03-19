@@ -11,18 +11,17 @@ defmodule SandboxCase.IntegrationTest do
   alias SandboxCase.TestApp.{Repo, Item}
 
   describe "Ecto sandbox" do
-    test "LiveView sees test data", %{sandbox_tokens: tokens} do
+    test "LiveView sees test data", %{sandbox: sandbox} do
       Repo.insert!(%Item{name: "test-item"})
 
-      conn = build_conn_with_sandbox(tokens)
+      conn = build_conn_with_sandbox(sandbox)
       {:ok, view, _html} = live(conn, "/items")
 
       assert render(view) =~ "test-item"
     end
 
-    test "data doesn't leak between tests", %{sandbox_tokens: tokens} do
-      # No items inserted — previous test's data should not be visible
-      conn = build_conn_with_sandbox(tokens)
+    test "data doesn't leak between tests", %{sandbox: sandbox} do
+      conn = build_conn_with_sandbox(sandbox)
       {:ok, view, _html} = live(conn, "/items")
 
       refute render(view) =~ "test-item"
@@ -30,12 +29,12 @@ defmodule SandboxCase.IntegrationTest do
   end
 
   describe "Mimic stubs" do
-    test "stub propagates to LiveView", %{sandbox_tokens: tokens} do
+    test "stub propagates to LiveView", %{sandbox: sandbox} do
       Mimic.stub(SandboxCase.TestApp.ExternalService, :greeting, fn ->
         "Hello from test"
       end)
 
-      conn = build_conn_with_sandbox(tokens)
+      conn = build_conn_with_sandbox(sandbox)
       {:ok, view, _html} = live(conn, "/greeting")
 
       assert render(view) =~ "Hello from test"
@@ -48,10 +47,10 @@ defmodule SandboxCase.IntegrationTest do
       :ok
     end
 
-    test "stub propagates to LiveView", %{sandbox_tokens: tokens} do
+    test "stub propagates to LiveView", %{sandbox: sandbox} do
       Mox.stub(SandboxCase.TestApp.MockWeather, :temperature, fn -> "72°F" end)
 
-      conn = build_conn_with_sandbox(tokens)
+      conn = build_conn_with_sandbox(sandbox)
       {:ok, view, _html} = live(conn, "/weather")
 
       assert render(view) =~ "72°F"
@@ -59,19 +58,19 @@ defmodule SandboxCase.IntegrationTest do
   end
 
   describe "Cachex sandbox" do
-    test "isolated cache with DB fallback", %{sandbox_tokens: tokens} do
+    test "isolated cache with DB fallback", %{sandbox: sandbox} do
       Repo.insert!(%Item{name: "cached-item"})
 
-      conn = build_conn_with_sandbox(tokens)
+      conn = build_conn_with_sandbox(sandbox)
       {:ok, view, _html} = live(conn, "/cached")
 
       assert render(view) =~ "cached-item"
     end
 
-    test "cache doesn't leak between tests", %{sandbox_tokens: tokens} do
+    test "cache doesn't leak between tests", %{sandbox: sandbox} do
       Repo.insert!(%Item{name: "other-item"})
 
-      conn = build_conn_with_sandbox(tokens)
+      conn = build_conn_with_sandbox(sandbox)
       {:ok, view, _html} = live(conn, "/cached")
 
       assert render(view) =~ "other-item"
@@ -80,18 +79,17 @@ defmodule SandboxCase.IntegrationTest do
   end
 
   describe "FunWithFlags sandbox" do
-    test "flag enabled in test is visible to LiveView", %{sandbox_tokens: tokens} do
+    test "flag enabled in test is visible to LiveView", %{sandbox: sandbox} do
       FunWithFlags.enable(:test_feature)
 
-      conn = build_conn_with_sandbox(tokens)
+      conn = build_conn_with_sandbox(sandbox)
       {:ok, view, _html} = live(conn, "/flagged")
 
       assert render(view) =~ "feature-on"
     end
 
-    test "flags don't leak between tests", %{sandbox_tokens: tokens} do
-      # :test_feature was enabled in the previous test but shouldn't be here
-      conn = build_conn_with_sandbox(tokens)
+    test "flags don't leak between tests", %{sandbox: sandbox} do
+      conn = build_conn_with_sandbox(sandbox)
       {:ok, view, _html} = live(conn, "/flagged")
 
       assert render(view) =~ "feature-off"
@@ -99,19 +97,19 @@ defmodule SandboxCase.IntegrationTest do
   end
 
   describe "Logger sandbox" do
-    test "captures logs from test process only", %{sandbox_tokens: tokens} do
+    test "captures logs from test process only", %{sandbox: sandbox} do
       require Logger
       Logger.info("hello from this test")
 
-      logs = SandboxCase.Sandbox.Logger.get_logs(tokens)
+      logs = SandboxCase.Sandbox.Logger.get_logs(sandbox)
       assert Enum.any?(logs, &(&1.message =~ "hello from this test"))
     end
 
-    test "logs don't leak between tests", %{sandbox_tokens: tokens} do
+    test "logs don't leak between tests", %{sandbox: sandbox} do
       require Logger
       Logger.info("different test")
 
-      logs = SandboxCase.Sandbox.Logger.get_logs(tokens)
+      logs = SandboxCase.Sandbox.Logger.get_logs(sandbox)
       refute Enum.any?(logs, &(&1.message =~ "hello from this test"))
       assert Enum.any?(logs, &(&1.message =~ "different test"))
     end
@@ -119,51 +117,50 @@ defmodule SandboxCase.IntegrationTest do
     test "fail_on: :error raises on error logs" do
       require Logger
 
-      tokens = SandboxCase.Sandbox.checkout(sandbox: [logger: [fail_on: :error]])
+      sandbox = SandboxCase.Sandbox.checkout(sandbox: [logger: [fail_on: :error]])
 
       Logger.error("something broke")
 
       assert_raise RuntimeError, ~r/1 log.*at error or above/, fn ->
-        SandboxCase.Sandbox.checkin(tokens)
+        SandboxCase.Sandbox.checkin(sandbox)
       end
     end
 
     test "fail_on: :warning raises on warning logs" do
       require Logger
 
-      tokens = SandboxCase.Sandbox.checkout(sandbox: [logger: [fail_on: :warning]])
+      sandbox = SandboxCase.Sandbox.checkout(sandbox: [logger: [fail_on: :warning]])
 
       Logger.warning("hmm")
 
       assert_raise RuntimeError, ~r/1 log.*at warning or above/, fn ->
-        SandboxCase.Sandbox.checkin(tokens)
+        SandboxCase.Sandbox.checkin(sandbox)
       end
     end
 
     test "fail_on: false never raises" do
       require Logger
 
-      tokens = SandboxCase.Sandbox.checkout(sandbox: [logger: [fail_on: false]])
+      sandbox = SandboxCase.Sandbox.checkout(sandbox: [logger: [fail_on: false]])
 
       Logger.error("ignored")
 
-      assert :ok = SandboxCase.Sandbox.checkin(tokens)
+      assert :ok = SandboxCase.Sandbox.checkin(sandbox)
     end
 
-    test "captures logs from spawned processes", %{sandbox_tokens: tokens} do
+    test "captures logs from spawned processes", %{sandbox: sandbox} do
       require Logger
 
       task = Task.async(fn -> Logger.warning("from child") end)
       Task.await(task)
 
-      logs = SandboxCase.Sandbox.Logger.get_logs(tokens)
+      logs = SandboxCase.Sandbox.Logger.get_logs(sandbox)
       assert Enum.any?(logs, &(&1.message =~ "from child"))
     end
   end
 
   describe "Orphan cleanup" do
     test "kills orphaned processes on checkin" do
-      # Spawn a process with our pid in $callers
       test_pid = self()
 
       {:ok, orphan} =
@@ -175,7 +172,6 @@ defmodule SandboxCase.IntegrationTest do
       Process.sleep(10)
       assert Process.alive?(orphan)
 
-      # kill_orphans finds and kills it
       SandboxCase.Sandbox.kill_orphans(test_pid)
 
       Process.sleep(10)
@@ -187,10 +183,8 @@ defmodule SandboxCase.IntegrationTest do
     end
   end
 
-  # Build a conn with sandbox metadata encoded in the user-agent,
-  # mimicking what a browser testing framework does.
-  defp build_conn_with_sandbox(tokens) do
-    case SandboxCase.Sandbox.ecto_metadata(tokens) do
+  defp build_conn_with_sandbox(sandbox) do
+    case SandboxCase.Sandbox.ecto_metadata(sandbox) do
       nil ->
         build_conn()
 

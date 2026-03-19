@@ -19,7 +19,7 @@ defmodule SandboxCase.Sandbox.Logger do
 
   ## Accessing captured logs
 
-      logs = SandboxCase.Sandbox.Logger.get_logs(context.sandbox_tokens)
+      logs = SandboxCase.Sandbox.Logger.get_logs(context.sandbox)
 
       # Each entry: %{level: atom, message: binary, metadata: map}
   """
@@ -97,6 +97,8 @@ defmodule SandboxCase.Sandbox.Logger do
   @doc """
   Get all logs captured during the current test.
   """
+  def get_logs(%{tokens: tokens}), do: get_logs(tokens)
+
   def get_logs(tokens) when is_list(tokens) do
     case List.keyfind(tokens, __MODULE__, 0) do
       {_, %{ref: ref}} -> get_logs_for_ref(ref)

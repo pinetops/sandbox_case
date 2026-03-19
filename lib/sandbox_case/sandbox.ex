@@ -65,24 +65,27 @@ defmodule SandboxCase.Sandbox do
   end
 
   @doc """
-  Per-test checkout. Returns a list of `{adapter, token}` tuples.
-  Pass to `checkin/1` in `on_exit`.
+  Per-test checkout. Returns a map with `:owner` (the test pid) and
+  `:tokens` (a list of `{adapter, token}` tuples).
+  Pass the whole map to `checkin/1` in `on_exit`.
   """
   def checkout(opts \\ []) do
     async? = Keyword.get(opts, :async?, false)
 
-    for {adapter, config} <- resolved_adapters(opts) do
-      config = if Keyword.keyword?(config), do: Keyword.put(config, :async?, async?), else: config
-      {adapter, adapter.checkout(config)}
-    end
+    tokens =
+      for {adapter, config} <- resolved_adapters(opts) do
+        config = if Keyword.keyword?(config), do: Keyword.put(config, :async?, async?), else: config
+        {adapter, adapter.checkout(config)}
+      end
+
+    %{owner: self(), tokens: tokens}
   end
 
   @doc """
   Per-test checkin. Kills orphaned processes, then checks in all adapters.
-  Accepts the list returned by `checkout/1`.
   """
-  def checkin(tokens) when is_list(tokens) do
-    kill_orphans(self())
+  def checkin(%{owner: owner, tokens: tokens}) do
+    kill_orphans(owner)
 
     for {adapter, token} <- tokens do
       adapter.checkin(token)
@@ -90,6 +93,7 @@ defmodule SandboxCase.Sandbox do
 
     :ok
   end
+
 
   @doc """
   Find processes that have `owner` in their `$callers` chain, warn, and kill them.
@@ -154,6 +158,8 @@ defmodule SandboxCase.Sandbox do
   Returns the Ecto metadata from the most recent checkout, if any.
   Useful for passing to browser session start.
   """
+  def ecto_metadata(%{tokens: tokens}), do: ecto_metadata(tokens)
+
   def ecto_metadata(tokens) when is_list(tokens) do
     case List.keyfind(tokens, SandboxCase.Sandbox.Ecto, 0) do
       {_, %{metadata: metadata}} -> metadata
