@@ -19,7 +19,7 @@ Crucially, each adapter isolates state in a way that's native to the library —
 
 ## How it works
 
-One config, one setup call, zero boilerplate. Built-in adapters for Ecto, Cachex, FunWithFlags, Mimic, and Mox — each activated only if the dep is loaded.
+One config, one setup call, zero boilerplate. Built-in adapters for Ecto, Cachex, FunWithFlags, Mimic, Mox, and Redis — each activated only if the dep is loaded.
 
 All macros expand at compile time. Outside `MIX_ENV=test`, `sandbox_plugs` and `sandbox_on_mount` emit nothing, and `socket_with_sandbox` emits a plain `socket` call. No runtime checks, no dead branches, no production dependencies on test libraries.
 
@@ -41,7 +41,8 @@ config :sandbox_case,
     cachex: [:my_cache],
     fun_with_flags: true,
     mimic: [MyApp.ExternalService, MyApp.Payments],
-    mox: [{MyApp.MockWeather, MyApp.WeatherBehaviour}]
+    mox: [{MyApp.MockWeather, MyApp.WeatherBehaviour}],
+    redis: [url: "redis://localhost:6379"]
   ]
 ```
 

@@ -20,7 +20,8 @@ defmodule SandboxCase.Sandbox do
           cachex: [:my_cache],                     # cache names to sandbox
           fun_with_flags: true,                    # enable FWF sandbox pool
           mimic: [MyApp.External, MyApp.Payments], # modules to Mimic.copy
-          mox: [{MyApp.MockWeather, MyApp.WeatherBehaviour}]
+          mox: [{MyApp.MockWeather, MyApp.WeatherBehaviour}],
+          redis: [url: "redis://localhost:6379"]
         ]
 
   Each key maps to a built-in adapter. You can also pass custom adapters:
@@ -47,7 +48,8 @@ defmodule SandboxCase.Sandbox do
     cachex: SandboxCase.Sandbox.Cachex,
     fun_with_flags: SandboxCase.Sandbox.FunWithFlags,
     mimic: SandboxCase.Sandbox.Mimic,
-    mox: SandboxCase.Sandbox.Mox
+    mox: SandboxCase.Sandbox.Mox,
+    redis: SandboxCase.Sandbox.Redis
   }
 
   @doc """
