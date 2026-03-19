@@ -122,6 +122,14 @@ defmodule SandboxCase.Sandbox do
     |> Enum.filter(&Code.ensure_loaded?/1)
   end
 
+  @doc false
+  def propagate_keys do
+    resolved_adapters([])
+    |> Enum.flat_map(fn {adapter, config} ->
+      if function_exported?(adapter, :propagate_keys, 1), do: adapter.propagate_keys(config), else: []
+    end)
+  end
+
   defp resolved_adapters(opts) do
     sandbox_config = opts[:sandbox] || Application.get_env(:sandbox_case, :sandbox, [])
     otp_app = opts[:otp_app] || Application.get_env(:sandbox_case, :otp_app)

@@ -29,5 +29,8 @@ defmodule SandboxCase.Sandbox.Adapter do
   @doc "on_mount modules to register in LiveViews. Return [] if none."
   @callback hooks() :: [module()]
 
-  @optional_callbacks [plugs: 0, hooks: 0]
+  @doc "Process dictionary keys to propagate to child processes. Return [] if none."
+  @callback propagate_keys(config :: term()) :: [term()]
+
+  @optional_callbacks [plugs: 0, hooks: 0, propagate_keys: 1]
 end

@@ -8,12 +8,12 @@ defmodule SandboxCase.Sandbox.Propagator do
     set_callers(owner)
     allow_mimic(owner, child)
     allow_mox(owner, child)
-    propagate_process_dict(owner)
+    propagate_keys(owner)
   end
 
   # Ecto — set $callers so this process and its sub-processes can access
   # the test sandbox via the ownership chain. Avoids the deadlock that
-  # occurs with allow/3 (see Wallabidi.Sandbox.Hook for details).
+  # occurs with allow/3.
   defp set_callers(owner) do
     callers = Process.get(:"$callers") || []
     unless owner in callers, do: Process.put(:"$callers", [owner | callers])
@@ -55,14 +55,15 @@ defmodule SandboxCase.Sandbox.Propagator do
     _, _ -> :ok
   end
 
-  # Copy sandbox-related process dictionary entries from owner.
-  defp propagate_process_dict(owner) do
+  # O(k) where k = number of sandbox keys, not O(n) over entire process dictionary.
+  defp propagate_keys(owner) do
+    keys = SandboxCase.Sandbox.propagate_keys()
+
     case :erlang.process_info(owner, :dictionary) do
       {:dictionary, dict} ->
-        for {key, value} <- dict do
-          case key do
-            {:cachex_sandbox, _} -> Process.put(key, value)
-            :fwf_sandbox -> Process.put(key, value)
+        for key <- keys do
+          case List.keyfind(dict, key, 0) do
+            {^key, value} -> Process.put(key, value)
             _ -> :ok
           end
         end

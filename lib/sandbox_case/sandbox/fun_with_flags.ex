@@ -25,6 +25,9 @@ defmodule SandboxCase.Sandbox.FunWithFlags do
   end
 
   @impl true
+  def propagate_keys(_config), do: [:fwf_sandbox]
+
+  @impl true
   def checkin(nil), do: :ok
 
   def checkin(token) do

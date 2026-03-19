@@ -14,6 +14,12 @@ defmodule SandboxCase.Sandbox.Cachex do
     :ok
   end
 
+  @impl true
+  def propagate_keys(config) do
+    names = extract_names(config)
+    Enum.map(names, &{:cachex_sandbox, &1})
+  end
+
   defp extract_names(config) when is_list(config) do
     case Keyword.get(config, :names) do
       nil -> Enum.filter(config, &is_atom/1)
