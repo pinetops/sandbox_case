@@ -8,33 +8,36 @@ defmodule SandboxCase.Sandbox.Logger do
 
   ## Configuration
 
-      config :sandbox_case,
-        sandbox: [
-          logger: true
-        ]
+      # Default — fail on :error logs
+      logger: true
 
-  ## Accessing logs
+      # Stricter — fail on :warning and above
+      logger: [fail_on: :warning]
+
+      # Capture only, never fail
+      logger: [fail_on: false]
+
+  ## Accessing captured logs
 
       logs = SandboxCase.Sandbox.Logger.get_logs(context.sandbox_tokens)
 
-      # Each entry is a map: %{level: atom, message: binary, metadata: map}
-      assert Enum.any?(logs, & &1.level == :info)
-      refute Enum.any?(logs, & &1.level == :error)
-
-  ## Automatic failure on errors
-
-  Pass `fail_on_error: true` to fail the test if any `:error` level
-  log is emitted:
-
-      config :sandbox_case,
-        sandbox: [
-          logger: [fail_on_error: true]
-        ]
+      # Each entry: %{level: atom, message: binary, metadata: map}
   """
   @behaviour SandboxCase.Sandbox.Adapter
 
   @handler_id :sandbox_case_logger
   @table :sandbox_case_log_buffers
+
+  @level_severity %{
+    debug: 0,
+    info: 1,
+    notice: 2,
+    warning: 3,
+    error: 4,
+    critical: 5,
+    alert: 6,
+    emergency: 7
+  }
 
   @impl true
   def available?, do: true
@@ -45,29 +48,42 @@ defmodule SandboxCase.Sandbox.Logger do
     :logger.add_handler(@handler_id, __MODULE__, %{})
     :ok
   rescue
-    ArgumentError -> :ok  # table already exists (re-setup)
+    ArgumentError -> :ok
   end
 
   @impl true
   def checkout(config) do
     ref = make_ref()
     Process.put(:sandbox_case_log_ref, ref)
-    fail_on_error = config[:fail_on_error] || false
-    %{ref: ref, fail_on_error: fail_on_error}
+
+    fail_on =
+      case config do
+        c when is_list(c) -> Keyword.get(c, :fail_on, :error)
+        _ -> :error
+      end
+
+    %{ref: ref, fail_on: fail_on}
   end
 
   @impl true
   def checkin(nil), do: :ok
 
-  def checkin(%{ref: ref} = token) do
+  def checkin(%{ref: ref, fail_on: fail_on}) do
     Process.delete(:sandbox_case_log_ref)
 
-    if token[:fail_on_error] do
-      errors = get_logs_for_ref(ref) |> Enum.filter(& &1.level == :error)
+    if fail_on do
+      threshold = Map.get(@level_severity, fail_on, 4)
 
-      if errors != [] do
-        messages = Enum.map_join(errors, "\n  ", & &1.message)
-        raise "Test produced #{length(errors)} error log(s):\n  #{messages}"
+      failing =
+        get_logs_for_ref(ref)
+        |> Enum.filter(fn entry ->
+          Map.get(@level_severity, entry.level, 0) >= threshold
+        end)
+
+      if failing != [] do
+        messages = Enum.map_join(failing, "\n  ", &"[#{&1.level}] #{&1.message}")
+        :ets.match_delete(@table, {ref, :_})
+        raise "Test produced #{length(failing)} log(s) at #{fail_on} or above:\n  #{messages}"
       end
     end
 
@@ -80,7 +96,6 @@ defmodule SandboxCase.Sandbox.Logger do
 
   @doc """
   Get all logs captured during the current test.
-  Pass the sandbox_tokens from the test context.
   """
   def get_logs(tokens) when is_list(tokens) do
     case List.keyfind(tokens, __MODULE__, 0) do
@@ -112,7 +127,6 @@ defmodule SandboxCase.Sandbox.Logger do
   @doc false
   def removing_handler(_config), do: :ok
 
-  # Walk the caller chain to find a process with a log ref.
   defp find_log_ref(meta) do
     pid = Map.get(meta, :pid, self())
     find_log_ref_for_pid(pid)

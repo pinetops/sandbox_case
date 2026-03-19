@@ -116,6 +116,40 @@ defmodule SandboxCase.IntegrationTest do
       assert Enum.any?(logs, &(&1.message =~ "different test"))
     end
 
+    test "fail_on: :error raises on error logs" do
+      require Logger
+
+      tokens = SandboxCase.Sandbox.checkout(sandbox: [logger: [fail_on: :error]])
+
+      Logger.error("something broke")
+
+      assert_raise RuntimeError, ~r/1 log.*at error or above/, fn ->
+        SandboxCase.Sandbox.checkin(tokens)
+      end
+    end
+
+    test "fail_on: :warning raises on warning logs" do
+      require Logger
+
+      tokens = SandboxCase.Sandbox.checkout(sandbox: [logger: [fail_on: :warning]])
+
+      Logger.warning("hmm")
+
+      assert_raise RuntimeError, ~r/1 log.*at warning or above/, fn ->
+        SandboxCase.Sandbox.checkin(tokens)
+      end
+    end
+
+    test "fail_on: false never raises" do
+      require Logger
+
+      tokens = SandboxCase.Sandbox.checkout(sandbox: [logger: [fail_on: false]])
+
+      Logger.error("ignored")
+
+      assert :ok = SandboxCase.Sandbox.checkin(tokens)
+    end
+
     test "captures logs from spawned processes", %{sandbox_tokens: tokens} do
       require Logger
 
