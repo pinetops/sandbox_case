@@ -79,6 +79,25 @@ defmodule SandboxCase.IntegrationTest do
     end
   end
 
+  describe "FunWithFlags sandbox" do
+    test "flag enabled in test is visible to LiveView", %{sandbox_tokens: tokens} do
+      FunWithFlags.enable(:test_feature)
+
+      conn = build_conn_with_sandbox(tokens)
+      {:ok, view, _html} = live(conn, "/flagged")
+
+      assert render(view) =~ "feature-on"
+    end
+
+    test "flags don't leak between tests", %{sandbox_tokens: tokens} do
+      # :test_feature was enabled in the previous test but shouldn't be here
+      conn = build_conn_with_sandbox(tokens)
+      {:ok, view, _html} = live(conn, "/flagged")
+
+      assert render(view) =~ "feature-off"
+    end
+  end
+
   # Build a conn with sandbox metadata encoded in the user-agent,
   # mimicking what a browser testing framework does.
   defp build_conn_with_sandbox(tokens) do

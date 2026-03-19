@@ -16,6 +16,7 @@ defmodule SandboxCase.TestApp.Router do
       live "/greeting", SandboxCase.TestApp.GreetingLive
       live "/weather", SandboxCase.TestApp.WeatherLive
       live "/cached", SandboxCase.TestApp.CachedLive
+      live "/flagged", SandboxCase.TestApp.FlaggedLive
     end
   end
 end
