@@ -2,7 +2,7 @@ defmodule PhoenixTestOnly.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/pinetops/phoenix_test_only"
-  @version "0.1.0"
+  @version "0.2.0"
 
   def project do
     [

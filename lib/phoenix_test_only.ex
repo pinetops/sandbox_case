@@ -7,86 +7,69 @@ defmodule PhoenixTestOnly do
   up inside a `case` node in the AST and Phoenix silently ignores it.
 
   These macros move the check to **macro expansion time**: the emitted code is
-  either a bare `plug`/`on_mount` call or nothing at all.
+  either a bare `plug`/`on_mount` call or nothing at all. They only emit in
+  test — if `Mix` isn't loaded (release) or `Mix.env()` isn't `:test`, nothing
+  is emitted.
 
   ## Usage
 
       # endpoint.ex
       import PhoenixTestOnly
-      plug_if_loaded(MyApp.Sandbox.Plug)
+      plug_if_test Phoenix.Ecto.SQL.Sandbox
+      plug_if_test Wallabidi.Sandbox.Plug
 
       # your_app_web.ex
       def live_view do
         quote do
           use Phoenix.LiveView
           import PhoenixTestOnly
-          on_mount_if_loaded(MyApp.Sandbox.Hook)
+          on_mount_if_test Wallabidi.Sandbox.Hook
         end
       end
-
-  When the target module isn't loaded (e.g. a test-only dep not present in
-  prod), the macro emits nothing — zero overhead, no dead code.
   """
 
   @doc """
-  Emits `plug(module)` if the module is loaded at compile time; otherwise nothing.
+  Emits `plug(module)` if compiling in test env and the module is loaded;
+  otherwise nothing.
 
-  Any options not used for gating are forwarded as plug options.
-
-  ## Options
-
-  * `:otp_app` + `:key` — also check `Application.get_env(otp_app, key)` is truthy
+  Any extra options are forwarded as plug options.
 
   ## Examples
 
-      plug_if_loaded(Wallabidi.Sandbox.Plug)
-      plug_if_loaded(Phoenix.Ecto.SQL.Sandbox)
-      plug_if_loaded(Wallabidi.Sandbox.Plug, otp_app: :wallabidi, key: :sandbox)
+      plug_if_test Phoenix.Ecto.SQL.Sandbox
+      plug_if_test Wallabidi.Sandbox.Plug
+      plug_if_test MyPlug, some_option: true
   """
-  defmacro plug_if_loaded(module, opts \\ []) do
+  defmacro plug_if_test(module, opts \\ []) do
     module = Macro.expand(module, __CALLER__)
-    {gate_opts, plug_opts} = Keyword.split(opts, [:otp_app, :key])
 
-    if should_emit?(module, gate_opts) do
-      if plug_opts == [] do
+    if test_env?() and Code.ensure_loaded?(module) do
+      if opts == [] do
         quote do: plug(unquote(module))
       else
-        quote do: plug(unquote(module), unquote(plug_opts))
+        quote do: plug(unquote(module), unquote(opts))
       end
     end
   end
 
   @doc """
-  Emits `on_mount(module)` if the module is loaded at compile time; otherwise nothing.
-
-  ## Options
-
-  * `:otp_app` + `:key` — also check `Application.get_env(otp_app, key)` is truthy
+  Emits `on_mount(module)` if compiling in test env and the module is loaded;
+  otherwise nothing.
 
   ## Examples
 
-      on_mount_if_loaded(Wallabidi.Sandbox.Hook)
-      on_mount_if_loaded(Wallabidi.Sandbox.Hook, otp_app: :wallabidi, key: :sandbox)
+      on_mount_if_test Wallabidi.Sandbox.Hook
   """
-  defmacro on_mount_if_loaded(module, opts \\ []) do
+  defmacro on_mount_if_test(module, _opts \\ []) do
     module = Macro.expand(module, __CALLER__)
-    {gate_opts, _extra} = Keyword.split(opts, [:otp_app, :key])
 
-    if should_emit?(module, gate_opts) do
+    if test_env?() and Code.ensure_loaded?(module) do
       quote do: on_mount(unquote(module))
     end
   end
 
   @doc false
-  def should_emit?(module, opts) do
-    Code.ensure_loaded?(module) and config_gate_passes?(opts)
-  end
-
-  defp config_gate_passes?([]), do: true
-
-  defp config_gate_passes?(opts) do
-    app = Keyword.fetch!(opts, :otp_app)
-    key = Keyword.fetch!(opts, :key)
-    !!Application.get_env(app, key)
+  def test_env? do
+    function_exported?(Mix, :env, 0) and Mix.env() == :test
   end
 end
