@@ -50,7 +50,7 @@ defmodule SandboxCase.Sandbox do
     mimic: SandboxCase.Sandbox.Mimic,
     mox: SandboxCase.Sandbox.Mox,
     redis: SandboxCase.Sandbox.Redis,
-    logger: SandboxCase.Sandbox.Logger
+    logger: SandboxCase.Sandbox.Logger,
   }
 
   @doc """
@@ -59,6 +59,13 @@ defmodule SandboxCase.Sandbox do
   def setup(opts \\ []) do
     for {adapter, config} <- resolved_adapters(opts) do
       adapter.setup(config)
+    end
+
+    sandbox_config = opts[:sandbox] || Application.get_env(:sandbox_case, :sandbox, [])
+
+    if dd_config = sandbox_config[:deadlock_detector] do
+      config = if is_list(dd_config), do: dd_config, else: []
+      SandboxCase.Sandbox.DeadlockDetector.setup(config)
     end
 
     :ok
