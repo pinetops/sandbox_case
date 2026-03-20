@@ -129,41 +129,30 @@ defmodule SandboxCase.Sandbox.Logger do
   @doc false
   def removing_handler(_config), do: :ok
 
-  defp find_log_ref(meta) do
-    pid = Map.get(meta, :pid, self())
-    find_log_ref_for_pid(pid)
-  end
-
-  defp find_log_ref_for_pid(pid) do
-    case process_dict_get(pid, :sandbox_case_log_ref) do
-      nil ->
-        case process_dict_get(pid, :"$callers") do
-          [parent | _] -> find_log_ref_for_pid(parent)
-          _ -> nil
-        end
-
-      ref ->
-        ref
+  # The handler runs inline in the calling process, so Process.get works
+  # directly. Fall back to walking $callers for child processes.
+  defp find_log_ref(_meta) do
+    case Process.get(:sandbox_case_log_ref) do
+      nil -> find_log_ref_in_callers(Process.get(:"$callers") || [])
+      ref -> ref
     end
   end
 
-  defp process_dict_get(pid, key) when pid == self() do
-    Process.get(key)
-  end
+  defp find_log_ref_in_callers([]), do: nil
 
-  defp process_dict_get(pid, key) do
+  defp find_log_ref_in_callers([pid | rest]) do
     case :erlang.process_info(pid, :dictionary) do
       {:dictionary, dict} ->
-        case List.keyfind(dict, key, 0) do
-          {^key, value} -> value
-          _ -> nil
+        case List.keyfind(dict, :sandbox_case_log_ref, 0) do
+          {:sandbox_case_log_ref, ref} -> ref
+          _ -> find_log_ref_in_callers(rest)
         end
 
       _ ->
-        nil
+        find_log_ref_in_callers(rest)
     end
   catch
-    _, _ -> nil
+    _, _ -> find_log_ref_in_callers(rest)
   end
 
   defp format_message({:string, msg}), do: IO.chardata_to_string(msg)
