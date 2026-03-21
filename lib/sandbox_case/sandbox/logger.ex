@@ -112,7 +112,7 @@ defmodule SandboxCase.Sandbox.Logger do
     |> Enum.map(fn {_ref, entry} -> entry end)
   end
 
-  # :logger handler callback
+  # :logger handler callback — must never raise or Erlang removes the handler
   @doc false
   def log(%{level: level, msg: msg, meta: meta}, _config) do
     case find_log_ref(meta) do
@@ -121,6 +121,8 @@ defmodule SandboxCase.Sandbox.Logger do
         message = format_message(msg)
         :ets.insert(@table, {ref, %{level: level, message: message, metadata: meta}})
     end
+  catch
+    _, _ -> :ok
   end
 
   @doc false
