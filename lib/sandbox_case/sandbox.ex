@@ -175,6 +175,28 @@ defmodule SandboxCase.Sandbox do
   end
 
   @doc """
+  Build a `Plug.Conn` with sandbox metadata encoded in the user-agent.
+
+  Use this instead of `Phoenix.ConnTest.build_conn()` when your endpoint
+  has `server: true` — the metadata allows the Plug to propagate sandbox
+  state (Ecto, Mimic, Mox, Cachex, FunWithFlags, Logger) to the Bandit
+  handler process.
+
+  With `server: false`, `Phoenix.ConnTest.build_conn()` works fine since
+  requests are dispatched inline in the test process.
+  """
+  def build_conn(sandbox) do
+    conn = Phoenix.ConnTest.build_conn()
+
+    case ecto_metadata(sandbox) do
+      nil -> conn
+      metadata ->
+        ua = Phoenix.Ecto.SQL.Sandbox.encode_metadata(metadata)
+        Plug.Conn.put_req_header(conn, "user-agent", ua)
+    end
+  end
+
+  @doc """
   Collects all plug modules declared by available adapters.
   Used by `SandboxCase.sandbox_plugs/0` at compile time.
   """
