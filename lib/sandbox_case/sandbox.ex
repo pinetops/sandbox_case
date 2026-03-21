@@ -90,18 +90,35 @@ defmodule SandboxCase.Sandbox do
 
   @doc """
   Per-test checkin. Order matters:
-  1. Wait for orphans to finish naturally (DB queries complete cleanly)
-  2. Rollback sandbox (invalidates transaction, in-flight queries fail with rollback)
-  3. Kill remaining orphans (safe — transaction already rolled back)
+  1. Wait for orphans to finish naturally
+  2. Rollback Ecto sandbox (stuck queries fail cleanly, connections stay healthy)
+  3. Brief wait for rollback-triggered process deaths
+  4. Kill any remaining orphans
+  5. Check unconsumed logs + checkin remaining adapters
   """
   def checkin(%{owner: owner, tokens: tokens}) do
     await_orphans(owner)
 
-    for {adapter, token} <- tokens do
+    # Rollback Ecto first — stuck queries fail with rollback error,
+    # not connection death. Error logs are still captured (Logger
+    # hasn't checked in yet).
+    {ecto_tokens, other_tokens} =
+      Enum.split_with(tokens, fn {adapter, _} ->
+        adapter == SandboxCase.Sandbox.Ecto
+      end)
+
+    for {adapter, token} <- ecto_tokens do
       adapter.checkin(token)
     end
 
+    # Brief wait for rollback-triggered deaths, then kill survivors
+    if ecto_tokens != [], do: Process.sleep(50)
     kill_orphans(owner)
+
+    # Now check logs + checkin remaining adapters
+    for {adapter, token} <- other_tokens do
+      adapter.checkin(token)
+    end
 
     :ok
   end
