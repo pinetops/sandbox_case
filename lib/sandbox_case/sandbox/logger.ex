@@ -53,6 +53,8 @@ defmodule SandboxCase.Sandbox.Logger do
 
   @impl true
   def checkout(config) do
+    ensure_handler_installed()
+
     ref = make_ref()
     Process.put(:sandbox_case_log_ref, ref)
 
@@ -155,6 +157,14 @@ defmodule SandboxCase.Sandbox.Logger do
     end
   catch
     _, _ -> find_log_ref_in_callers(rest)
+  end
+
+  defp ensure_handler_installed do
+    unless @handler_id in :logger.get_handler_ids() do
+      :logger.add_handler(@handler_id, __MODULE__, %{level: :all})
+    end
+  catch
+    _, _ -> :ok
   end
 
   defp format_message({:string, msg}), do: IO.chardata_to_string(msg)
