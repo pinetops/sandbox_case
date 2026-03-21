@@ -37,7 +37,7 @@ defmodule SandboxCase.MixProject do
       {:ecto_sqlite3, "~> 0.22", only: :test},
       {:bandit, "~> 1.0", only: :test},
       {:cachex, "~> 4.1", only: :test},
-      {:fun_with_flags, github: "pinetops/fun_with_flags", branch: "fwf-sandbox", only: :test, runtime: false},
+      {:fun_with_flags, "~> 1.11", only: :test, runtime: false},
       {:mimic, "~> 1.7", only: :test},
       {:mox, "~> 1.2", only: :test},
       {:lazy_html, ">= 0.1.0", only: :test}
