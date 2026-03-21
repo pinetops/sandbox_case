@@ -2,7 +2,7 @@ defmodule SandboxCase.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/pinetops/sandbox_case"
-  @version "0.3.2"
+  @version "0.3.3"
 
   def project do
     [
