@@ -2,7 +2,7 @@ defmodule SandboxCase.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/pinetops/sandbox_case"
-  @version "0.2.11"
+  @version "0.3.0"
 
   def project do
     [
@@ -31,7 +31,7 @@ defmodule SandboxCase.MixProject do
       {:phoenix_live_view, "~> 1.0", optional: true},
       {:phoenix_ecto, "~> 4.0", optional: true},
       {:ex_doc, "~> 0.28", only: :dev, runtime: false},
-      {:sandbox_shim, github: "pinetops/sandbox_shim", only: :test},
+      {:sandbox_shim, "~> 0.1", only: :test},
       # Test deps — full Phoenix app for integration tests
       {:jason, "~> 1.0", only: :test},
       {:ecto_sql, "~> 3.12", only: :test},
