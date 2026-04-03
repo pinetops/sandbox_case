@@ -57,6 +57,8 @@ defmodule SandboxCase.Sandbox do
   One-time setup. Call from test_helper.exs.
   """
   def setup(opts \\ []) do
+    Application.put_env(:sandbox_case, :setup_done, true)
+
     for {adapter, config} <- resolved_adapters(opts) do
       adapter.setup(config)
     end
@@ -89,6 +91,13 @@ defmodule SandboxCase.Sandbox do
     end
 
     :ok
+  end
+
+  @doc """
+  Returns true if `setup/1` has been called.
+  """
+  def setup? do
+    Application.get_env(:sandbox_case, :setup_done, false)
   end
 
   @doc """
