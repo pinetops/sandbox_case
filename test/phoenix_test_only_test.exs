@@ -25,14 +25,20 @@ defmodule SandboxCaseTest do
       prev = Application.get_env(:sandbox_case, :sandbox)
       Application.put_env(:sandbox_case, :sandbox, [])
       assert SandboxCase.Sandbox.collect_plugs() == []
-      if prev, do: Application.put_env(:sandbox_case, :sandbox, prev), else: Application.delete_env(:sandbox_case, :sandbox)
+
+      if prev,
+        do: Application.put_env(:sandbox_case, :sandbox, prev),
+        else: Application.delete_env(:sandbox_case, :sandbox)
     end
 
     test "collect_hooks returns empty list when no adapters configured" do
       prev = Application.get_env(:sandbox_case, :sandbox)
       Application.put_env(:sandbox_case, :sandbox, [])
       assert SandboxCase.Sandbox.collect_hooks() == []
-      if prev, do: Application.put_env(:sandbox_case, :sandbox, prev), else: Application.delete_env(:sandbox_case, :sandbox)
+
+      if prev,
+        do: Application.put_env(:sandbox_case, :sandbox, prev),
+        else: Application.delete_env(:sandbox_case, :sandbox)
     end
   end
 end

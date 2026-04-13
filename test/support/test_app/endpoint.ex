@@ -10,15 +10,17 @@ defmodule SandboxCase.TestApp.Endpoint do
   import SandboxShim
   sandbox_plugs()
 
-  sandbox_socket "/live", Phoenix.LiveView.Socket,
+  sandbox_socket("/live", Phoenix.LiveView.Socket,
     websocket: [connect_info: [session: @session_options]]
+  )
 
-  plug Plug.Parsers,
+  plug(Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
     json_decoder: Jason
+  )
 
-  plug Plug.Session, @session_options
-  plug Phoenix.Ecto.CheckRepoStatus, otp_app: :sandbox_case
-  plug SandboxCase.TestApp.Router
+  plug(Plug.Session, @session_options)
+  plug(Phoenix.Ecto.CheckRepoStatus, otp_app: :sandbox_case)
+  plug(SandboxCase.TestApp.Router)
 end

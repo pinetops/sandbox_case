@@ -96,7 +96,10 @@ defmodule SandboxCase.RaceConditionTest do
 
       SandboxCase.Sandbox.on_cleanup(sandbox, fn ->
         require Logger
-        Logger.error("Task terminating\n** (DBConnection.OwnershipError) cannot find ownership process")
+
+        Logger.error(
+          "Task terminating\n** (DBConnection.OwnershipError) cannot find ownership process"
+        )
       end)
 
       assert :ok = SandboxCase.Sandbox.checkin(sandbox)
@@ -107,7 +110,10 @@ defmodule SandboxCase.RaceConditionTest do
 
       SandboxCase.Sandbox.on_cleanup(sandbox, fn ->
         require Logger
-        Logger.error("Task terminating\n** (KeyError) key :id not found in: {{:shutdown, \"owner #PID<0.1234.0> exited\"}, {DBConnection.Holder, :checkout, []}}")
+
+        Logger.error(
+          "Task terminating\n** (KeyError) key :id not found in: {{:shutdown, \"owner #PID<0.1234.0> exited\"}, {DBConnection.Holder, :checkout, []}}"
+        )
       end)
 
       assert :ok = SandboxCase.Sandbox.checkin(sandbox)

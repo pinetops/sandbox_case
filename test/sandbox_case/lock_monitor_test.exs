@@ -3,10 +3,11 @@ defmodule SandboxCase.LockMonitorTest do
 
   describe "LockMonitor" do
     test "starts and stops cleanly" do
-      {:ok, pid} = SandboxCase.Sandbox.LockMonitor.start_link(
-        repo: SandboxCase.TestApp.Repo,
-        interval: 1_000
-      )
+      {:ok, pid} =
+        SandboxCase.Sandbox.LockMonitor.start_link(
+          repo: SandboxCase.TestApp.Repo,
+          interval: 1_000
+        )
 
       assert Process.alive?(pid)
       GenServer.stop(pid)
@@ -16,10 +17,11 @@ defmodule SandboxCase.LockMonitorTest do
     test "polls without crashing on SQLite" do
       # SQLite doesn't have pg_stat_activity, but the monitor
       # should handle the error gracefully
-      {:ok, pid} = SandboxCase.Sandbox.LockMonitor.start_link(
-        repo: SandboxCase.TestApp.Repo,
-        interval: 100
-      )
+      {:ok, pid} =
+        SandboxCase.Sandbox.LockMonitor.start_link(
+          repo: SandboxCase.TestApp.Repo,
+          interval: 100
+        )
 
       # Let it poll a couple times
       Process.sleep(250)
@@ -28,9 +30,11 @@ defmodule SandboxCase.LockMonitorTest do
     end
 
     test "setup starts monitor when configured" do
-      SandboxCase.Sandbox.setup(sandbox: [
-        lock_monitor: [repo: SandboxCase.TestApp.Repo, interval: 60_000]
-      ])
+      SandboxCase.Sandbox.setup(
+        sandbox: [
+          lock_monitor: [repo: SandboxCase.TestApp.Repo, interval: 60_000]
+        ]
+      )
 
       assert Process.whereis(SandboxCase.Sandbox.LockMonitor) != nil
       GenServer.stop(SandboxCase.Sandbox.LockMonitor)

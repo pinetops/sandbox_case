@@ -190,7 +190,11 @@ defmodule SandboxCase.Sandbox.FwfPatcher do
                   case reason do
                     :expired ->
                       require Logger
-                      Logger.warning("FunWithFlags: couldn't load flag '#{flag_name}' from storage, falling back to stale cached value from ETS")
+
+                      Logger.warning(
+                        "FunWithFlags: couldn't load flag '#{flag_name}' from storage, falling back to stale cached value from ETS"
+                      )
+
                       {:ok, stale_value_or_nil}
 
                     _ ->
@@ -216,8 +220,12 @@ defmodule SandboxCase.Sandbox.FwfPatcher do
           end
 
           case result do
-            {:ok, flag} -> Cache.put(flag); result
-            _ -> result
+            {:ok, flag} ->
+              Cache.put(flag)
+              result
+
+            _ ->
+              result
           end
         end
 
@@ -237,8 +245,12 @@ defmodule SandboxCase.Sandbox.FwfPatcher do
           end
 
           case result do
-            {:ok, flag} -> Cache.put(flag); result
-            _ -> result
+            {:ok, flag} ->
+              Cache.put(flag)
+              result
+
+            _ ->
+              result
           end
         end
 
@@ -258,8 +270,12 @@ defmodule SandboxCase.Sandbox.FwfPatcher do
           end
 
           case result do
-            {:ok, flag} -> Cache.put(flag); result
-            _ -> result
+            {:ok, flag} ->
+              Cache.put(flag)
+              result
+
+            _ ->
+              result
           end
         end
 

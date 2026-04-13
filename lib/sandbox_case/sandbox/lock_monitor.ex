@@ -100,8 +100,17 @@ defmodule SandboxCase.Sandbox.LockMonitor do
   defp report_locks(rows) do
     details =
       Enum.map_join(rows, "\n\n", fn row ->
-        [blocked_pid, blocked_query, wait_type, blocked_state, blocked_secs,
-         blocking_pid, blocking_query, blocking_state, blocking_secs] = row
+        [
+          blocked_pid,
+          blocked_query,
+          wait_type,
+          blocked_state,
+          blocked_secs,
+          blocking_pid,
+          blocking_query,
+          blocking_state,
+          blocking_secs
+        ] = row
 
         """
           BLOCKED: PG pid #{blocked_pid} (#{blocked_state}, waiting #{format_secs(blocked_secs)}, #{wait_type})

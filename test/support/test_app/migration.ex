@@ -3,7 +3,7 @@ defmodule SandboxCase.TestApp.Migration do
 
   def change do
     create table(:items) do
-      add :name, :string
+      add(:name, :string)
     end
   end
 end

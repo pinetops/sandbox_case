@@ -50,8 +50,10 @@ defmodule SandboxCase.Sandbox do
     mimic: SandboxCase.Sandbox.Mimic,
     mox: SandboxCase.Sandbox.Mox,
     redis: SandboxCase.Sandbox.Redis,
-    logger: SandboxCase.Sandbox.Logger,
+    logger: SandboxCase.Sandbox.Logger
   }
+
+  @orphan_timeout 5_000
 
   @doc """
   One-time setup. Call from test_helper.exs.
@@ -110,7 +112,9 @@ defmodule SandboxCase.Sandbox do
 
     tokens =
       for {adapter, config} <- resolved_adapters(opts) do
-        config = if Keyword.keyword?(config), do: Keyword.put(config, :async?, async?), else: config
+        config =
+          if Keyword.keyword?(config), do: Keyword.put(config, :async?, async?), else: config
+
         {adapter, adapter.checkout(config)}
       end
 
@@ -160,7 +164,32 @@ defmodule SandboxCase.Sandbox do
 
     Process.delete(:sandbox_case_cleanup_callbacks)
 
-    await_orphans(owner)
+    orphan_timeout = Process.get(:sandbox_case_orphan_timeout, @orphan_timeout)
+    survivors = await_orphans(owner, orphan_timeout)
+
+    # Re-scan for children spawned during await (e.g. Cachex Courier
+    # workers triggered by a LiveView message).
+    late_children = find_test_children(owner) -- survivors
+
+    survivors =
+      if late_children != [] do
+        survivors ++ await_orphans_pids(late_children, min(orphan_timeout, 1_000))
+      else
+        survivors
+      end
+
+    if survivors != [] do
+      names = Enum.map(survivors, &format_orphan/1)
+
+      require Logger
+
+      Logger.warning(
+        "sandbox_case: #{length(survivors)} orphaned process(es) did not exit " <>
+          "within #{orphan_timeout}ms: #{Enum.join(names, ", ")}. " <>
+          "The test likely returned before a LiveView or async task finished processing. " <>
+          "Add an assert_has for a stable post-event UI element before letting the test return."
+      )
+    end
 
     # Rollback Ecto first — stuck queries fail with rollback error,
     # not connection death. Error logs are still captured (Logger
@@ -198,39 +227,55 @@ defmodule SandboxCase.Sandbox do
     end
   end
 
-  @orphan_timeout 5_000
-
   @doc """
   Wait for orphaned processes to finish naturally (up to timeout).
   Does NOT kill survivors — call `kill_orphans/1` separately.
+
+  Returns a list of pids that did NOT exit within the timeout.
+
+  The timeout can be configured per-test via:
+
+      Process.put(:sandbox_case_orphan_timeout, 15_000)
+
+  Or set in your test module setup:
+
+      setup do
+        Process.put(:sandbox_case_orphan_timeout, 15_000)
+        :ok
+      end
   """
   def await_orphans(owner, timeout \\ @orphan_timeout) do
-    # Wait for unregistered processes with test pid in $callers.
-    # This includes LiveView channels (supervised but unregistered)
-    # and Tasks. Excludes system processes like Cachex locksmith
-    # (registered, never die).
     children = find_test_children(owner)
+    await_orphans_pids(children, timeout)
+  end
 
-    if children != [] do
+  # Wait for a specific list of pids to exit. Returns the survivors.
+  defp await_orphans_pids(pids, timeout) do
+    if pids == [] do
+      []
+    else
       refs =
-        Enum.map(children, fn pid ->
+        Enum.map(pids, fn pid ->
           {pid, Process.monitor(pid)}
         end)
 
       deadline = System.monotonic_time(:millisecond) + timeout
 
-      for {_pid, ref} <- refs do
-        remaining = max(deadline - System.monotonic_time(:millisecond), 0)
+      survivors =
+        Enum.flat_map(refs, fn {pid, ref} ->
+          remaining = max(deadline - System.monotonic_time(:millisecond), 0)
 
-        receive do
-          {:DOWN, ^ref, :process, _, _} -> :ok
-        after
-          remaining -> Process.demonitor(ref, [:flush])
-        end
-      end
+          receive do
+            {:DOWN, ^ref, :process, _, _} -> []
+          after
+            remaining ->
+              Process.demonitor(ref, [:flush])
+              [pid]
+          end
+        end)
+
+      survivors
     end
-
-    :ok
   end
 
   # Unregistered processes with the test pid in $callers.
@@ -270,6 +315,26 @@ defmodule SandboxCase.Sandbox do
   catch
     _, _ -> false
   end
+
+  defp format_orphan(pid) do
+    info = :erlang.process_info(pid, [:initial_call, :current_function, :status])
+
+    case info do
+      nil ->
+        "#{inspect(pid)} (dead)"
+
+      props ->
+        init = format_mfa(props[:initial_call])
+        current = format_mfa(props[:current_function])
+        "#{inspect(pid)} (init: #{init}, current: #{current})"
+    end
+  catch
+    _, _ -> inspect(pid)
+  end
+
+  defp format_mfa({m, f, a}), do: "#{inspect(m)}.#{f}/#{a}"
+  defp format_mfa(nil), do: "?"
+  defp format_mfa(other), do: inspect(other)
 
   @doc """
   Find and kill orphaned processes immediately (no waiting).
@@ -314,15 +379,17 @@ defmodule SandboxCase.Sandbox do
   defp spawned_by_test?(pid, owner) do
     case :erlang.process_info(pid, :dictionary) do
       {:dictionary, dict} ->
-        has_caller = case List.keyfind(dict, :"$callers", 0) do
-          {:"$callers", callers} -> owner in callers
-          _ -> false
-        end
+        has_caller =
+          case List.keyfind(dict, :"$callers", 0) do
+            {:"$callers", callers} -> owner in callers
+            _ -> false
+          end
 
-        system_supervised = case List.keyfind(dict, :"$ancestors", 0) do
-          {:"$ancestors", ancestors} -> not (owner in ancestors)
-          _ -> false
-        end
+        system_supervised =
+          case List.keyfind(dict, :"$ancestors", 0) do
+            {:"$ancestors", ancestors} -> owner not in ancestors
+            _ -> false
+          end
 
         has_caller and not system_supervised
 
@@ -370,7 +437,9 @@ defmodule SandboxCase.Sandbox do
     conn = Phoenix.ConnTest.build_conn()
 
     case ecto_metadata(sandbox) do
-      nil -> conn
+      nil ->
+        conn
+
       metadata ->
         ua = Phoenix.Ecto.SQL.Sandbox.encode_metadata(metadata)
         Plug.Conn.put_req_header(conn, "user-agent", ua)
@@ -379,7 +448,7 @@ defmodule SandboxCase.Sandbox do
 
   @doc """
   Collects all plug modules declared by available adapters.
-  Used by `SandboxCase.sandbox_plugs/0` at compile time.
+  Used by the `sandbox_plugs/0` macro at compile time.
   """
   def collect_plugs do
     resolved_adapters([])
@@ -391,7 +460,7 @@ defmodule SandboxCase.Sandbox do
 
   @doc """
   Collects all on_mount modules declared by available adapters.
-  Used by `SandboxCase.sandbox_on_mount/0` at compile time.
+  Used by the `sandbox_on_mount/0` macro at compile time.
   """
   def collect_hooks do
     resolved_adapters([])
@@ -405,7 +474,9 @@ defmodule SandboxCase.Sandbox do
   def propagate_keys do
     resolved_adapters([])
     |> Enum.flat_map(fn {adapter, config} ->
-      if function_exported?(adapter, :propagate_keys, 1), do: adapter.propagate_keys(config), else: []
+      if function_exported?(adapter, :propagate_keys, 1),
+        do: adapter.propagate_keys(config),
+        else: []
     end)
   end
 

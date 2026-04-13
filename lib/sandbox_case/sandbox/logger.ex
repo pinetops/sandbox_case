@@ -97,6 +97,7 @@ defmodule SandboxCase.Sandbox.Logger do
       if failing != [] do
         messages = Enum.map_join(failing, "\n  ", &"[#{&1.level}] #{&1.message}")
         :ets.match_delete(@table, {ref, :_})
+
         raise "Test produced #{length(failing)} unconsumed log(s) at #{fail_on} or above:\n  #{messages}"
       end
     end
@@ -219,11 +220,17 @@ defmodule SandboxCase.Sandbox.Logger do
   @doc false
   def log(%{level: level, msg: msg, meta: meta}, _config) do
     case find_log_ref(meta) do
-      nil -> :ok
+      nil ->
+        :ok
+
       ref ->
         message = format_message(msg)
         logged_at = System.monotonic_time(:millisecond)
-        :ets.insert(@table, {ref, %{level: level, message: message, metadata: meta, logged_at: logged_at}})
+
+        :ets.insert(
+          @table,
+          {ref, %{level: level, message: message, metadata: meta, logged_at: logged_at}}
+        )
     end
   catch
     _, _ -> :ok
@@ -268,7 +275,7 @@ defmodule SandboxCase.Sandbox.Logger do
       logged_at >= cleanup_started and
       (String.contains?(message, "OwnershipError") or
          String.contains?(message, "cannot find ownership process") or
-         String.contains?(message, "owner") and String.contains?(message, "exited"))
+         (String.contains?(message, "owner") and String.contains?(message, "exited")))
   end
 
   defp ownership_error_during_cleanup?(_), do: false
