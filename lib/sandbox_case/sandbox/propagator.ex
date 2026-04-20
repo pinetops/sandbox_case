@@ -23,20 +23,12 @@ defmodule SandboxCase.Sandbox.Propagator do
     mimic = Module.concat([Mimic])
 
     if Code.ensure_loaded?(mimic) do
-      server = Module.concat([Mimic, Server])
-
-      for mod <- mimic_modules(server) do
+      for mod <- SandboxCase.Sandbox.Mimic.copied_modules() do
         mimic.allow(mod, owner, child)
       end
     end
   catch
     _, _ -> :ok
-  end
-
-  defp mimic_modules(server) do
-    :sys.get_state(server).modules_opts |> Map.keys()
-  catch
-    _, _ -> []
   end
 
   defp allow_mox(owner, child) do
